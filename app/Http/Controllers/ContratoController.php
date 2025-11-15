@@ -156,6 +156,7 @@ class ContratoController extends Controller
         ->select('contratos.cod_contrato')
         ->where('contratos.cod_contrato','=',$request->cod_contrato)
          ->get();
+         $id_periodo = 0;
         //verificar que existe el contrato
         if(count($verificarcontratos) <= 0){
             //verificar que existe la institucion
@@ -188,6 +189,7 @@ class ContratoController extends Controller
                         }else{
                             return ["status" => "0","message"=>"No existe periodo para la region sierra"];
                         }
+                        $id_periodo = $filtrarPeriodo[0]->idperiodoescolar;
                     } else {
                         $region = "2";
                         //validar que el periodo aun no termine la fecha limite
@@ -209,6 +211,7 @@ class ContratoController extends Controller
                         }else{
                             return ["status" => "0","message"=>"No existe periodo para la region costa"];
                         }
+                        $id_periodo = $filtrarPeriodo[0]->idperiodoescolar;
                     }
                 //si no existe la institucion
                 if(count($verificarinstitucion) <= 0){
@@ -241,10 +244,12 @@ class ContratoController extends Controller
                 if(count($verificardocente) > 0){
                     return ["status" => "0", "message" => "La cédula ya existe"];
                 }
+                $apellido = $request->input('docente_apellidos');
                 $docente = new Usuario();
                 $docente->persona_id  = $traerdocente;
                 $docente->nombre = $request->docente_nombres;
-                $docente->apellido  = $request->docente_apellidos;
+                $docente->apellido = ($apellido === null || trim($apellido) === '' || strtolower(trim($apellido)) === 'null') ? null : $apellido;
+                $docente->apellido  = $request->docente_apellidos?? null;
                 $docente->cedula  = $request->docente_cedula;
                 $docente->email   = $request->docente_email;
                 $docente->password = bcrypt($request->docente_cedula);
@@ -262,6 +267,7 @@ class ContratoController extends Controller
                     $contrato->id_temporada = $request->id_temporada;
                     $contrato->id_institucion = $ingresoInstitucion;
                     $contrato->id_docente = $docente->idusuario;
+                    $contrato->id_periodo = $id_periodo;
                     $contrato->save();
                 }
                 else{
@@ -340,135 +346,6 @@ class ContratoController extends Controller
         AND c.estado = '1'
         ");
         return $traercontratos;
-
-
-            // $getPeriodos=[];
-            // $docente = $request->idusuario;
-            // $institucion= $request->institucion_idinstitucion;
-            // //ver si existe el periodo asignado para la institucion
-            // $verificarperiodoinstitucion = DB::table('periodoescolar_has_institucion')
-            // ->select('periodoescolar_has_institucion.periodoescolar_idperiodoescolar')
-            // ->where('periodoescolar_has_institucion.institucion_idInstitucion','=',$institucion)
-            // ->orderBy('periodoescolar_idperiodoescolar','desc')
-            // ->get();
-
-            //  // si no existe el periodo lo crearemos
-            // if(count($verificarperiodoinstitucion) <= 0){
-            //     //buscamos la temporada para extraer si es costa o sierra
-            //      $traercontrato = DB::table('contratos')
-            //      ->select('contratos.id_temporada')
-            //      ->where('contratos.id_docente','=',$docente)
-            //      ->where('contratos.id_institucion','=',$institucion)
-            //      ->get();
-            //     //para obtener el caracter S / C
-            //     $temporadachar = $traercontrato[0]->id_temporada;
-            //     $region = $temporadachar[0];
-            //     //para obtener el periodo
-            //     if($region == "S"){
-            //     $traerperiodo =   DB::table('periodoescolar')
-            //         ->select('periodoescolar.idperiodoescolar')
-            //         ->where('region_idregion', "1")
-            //         ->where('estado', "1")
-            //         ->get();
-            //     }else{
-
-            //      $traerperiodo =   DB::table('periodoescolar')
-            //      ->select('periodoescolar.idperiodoescolar')
-            //      ->where('region_idregion', "2")
-            //      ->where('estado', "1")
-            //      ->get();
-            //     }
-            //     if(count($traerperiodo) >1){
-            //         return ["status"=>"0" , "message"=> "Existe mas de 2 periodos activos en una region"];
-            //     }
-            //     $periodo = $traerperiodo[0]->idperiodoescolar;
-            //     //para buscar el contrato
-            //     $buscarContrato = DB::table('contratos')
-            //     ->select('contratos.contrato_id')
-            //     ->where('contratos.id_docente','=',$docente)
-            //     ->where('contratos.id_institucion','=',$institucion)
-            //     ->get();
-            //    $contrato_id = $buscarContrato[0]->contrato_id;
-            //     DB::table('contratos')
-            //     ->where('contrato_id', $contrato_id)
-            //     ->update(['id_periodo' =>$periodo]);
-            //      //para guardar en la tabla periodos el periodo
-            //         $dato = new PeriodosInstitucion();
-            //         $dato->periodoescolar_idperiodoescolar = $periodo;
-            //         $dato->institucion_idInstitucion = $request->institucion_idinstitucion;
-            //         $dato->save();
-            //          //verificar que el periodo exista
-            //         //traer los contratos de los docentes de acuerdo al periodo
-            //         $traercontratos = DB::table('contratos')
-            //         ->select('contratos.cod_contrato')
-            //         ->where('contratos.id_docente','=',$docente)
-            //         ->where('contratos.id_periodo','=',$dato->periodoescolar_idperiodoescolar)
-            //         ->where('contratos.id_institucion','=',$institucion)
-            //         ->where('contratos.verificacion_estado','=',"0")
-            //         ->where('contratos.estado','=',"1")
-            //         ->get();
-            //         return $traercontratos;
-            // }else{
-            //     $getperiodo = $verificarperiodoinstitucion[0]->periodoescolar_idperiodoescolar;
-            //     $verificarperiodos =DB::SELECT("SELECT p.idperiodoescolar
-            //     FROM periodoescolar p
-            //     WHERE p.estado = '1'
-            //     and p.idperiodoescolar = '$getperiodo'
-            //     ORDER BY p.idperiodoescolar DESC
-            //         ");
-            //     //almancenar el periodo
-            //     $periodo =  $verificarperiodos[0]->idperiodoescolar;
-            //        //para buscar el contrato
-            //        $buscarContrato = DB::table('contratos')
-            //        ->select('contratos.contrato_id','contratos.id_periodo')
-            //        ->where('contratos.id_docente','=',$docente)
-            //        ->where('contratos.id_institucion','=',$institucion)
-            //        ->orderBy('contratos.contrato_id','DESC',)
-            //        ->get();
-            //        //solo si el periodo es cero
-            //        $buscarPeriodo = $buscarContrato[0]->id_periodo;
-            //         if($buscarPeriodo == 0){
-            //             $contrato_id = $buscarContrato[0]->contrato_id;
-            //             DB::table('contratos')
-            //             ->where('contrato_id', $contrato_id)
-            //             ->update(['id_periodo' =>$periodo]);
-            //         }
-            //         //verificar que el periodo exista
-            //         if(count($verificarperiodos) <= 0){
-            //             return ["status"=>"0" , "message"=> "no existe el periodo para la institucion"];
-            //         }else{
-            //             //traer los contratos de los docentes de acuerdo al periodo
-            //             // $traercontratos = DB::table('contratos')
-            //             // ->select('contratos.cod_contrato')
-            //             // ->where('contratos.id_docente','=',$docente)
-            //             // ->where('contratos.id_periodo','=',$periodo)
-            //             // ->where('contratos.id_institucion','=',$institucion)
-            //             // ->where('contratos.verificacion_estado','=',"0")
-            //             // ->where('contratos.estado','=',"1")
-            //             // ->get();
-            //             $traercontratos = DB::SELECT("SELECT * FROM contratos c
-            //             WHERE c.id_docente = '$docente'
-            //             AND c.id_institucion = '$institucion'
-            //             AND c.id_periodo = '$periodo'
-            //             AND c.verificacion_estado = '0'
-            //             AND c.estado = '1'
-            //             ");
-            //             return $traercontratos;
-            //         }
-            // }
-        //     DB::commit();
-
-        // }catch(\Exception $e){
-            // return[
-            //     "status"=>"0",
-            //     "message"=>"No se pudo listar los contratos",
-            //     "error" => "error ".$e
-            // ];
-            // DB::rollback();
-
-        //}
-
-
     }
     public function verificacionesInfo(Request $request){
         $verificarperiodoinstitucion = DB::table('periodoescolar_has_institucion')

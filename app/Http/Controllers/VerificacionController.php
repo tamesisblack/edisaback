@@ -33,7 +33,7 @@ class VerificacionController extends Controller
 
         return $admin;
     }
-    //para traer los docentes 
+    //para traer los docentes
 
     public function traerDocentes(){
         $docentes = DB::table('usuario')
@@ -48,7 +48,7 @@ class VerificacionController extends Controller
     public function codigosImportar(Request $request){
         set_time_limit(6000000);
         ini_set('max_execution_time', 6000000);
-        $codigos = json_decode($request->data_codigos);  
+        $codigos = json_decode($request->data_codigos);
         $datos=[];
         $codigosNoCambiados=[];
         $codigosYaVerificados =[];
@@ -58,7 +58,7 @@ class VerificacionController extends Controller
         foreach($codigos as $key => $item){
         //validar si el codigo existe
             $validar = DB::SELECT("SELECT c._id as codigo,contrato,c.estado,
-            (CASE 
+            (CASE
                 WHEN(c.estado = '0') THEN 'Codigo libre'
                 WHEN(c.estado = '1') THEN 'Codigo utilizado'
                 WHEN(c.estado = '2') THEN 'Codigo devuelto'
@@ -75,13 +75,13 @@ class VerificacionController extends Controller
                 //validar que sea un codigo libre
                 $ifCodigoLibre   = $validar[0]->estado;
                 if($ifCodigoLibre == '0' && ($ifhaveContracto == null || $ifhaveContracto == '0')){
-                    $date = Carbon::now();   
+                    $date = Carbon::now();
                     $codigo = DB::table('codigos')
                        ->where('_id', $item->codigo)
                        ->where('estado','=','0')
                        ->update(
                            [
-                           'profesor_id'    =>  $request->docente_id, 
+                           'profesor_id'    =>  $request->docente_id,
                            'contrato'       =>  $request->contrato,
                            'estado'         =>  1,
                            'id_verificador' =>  $request->usuario_editor,
@@ -105,7 +105,7 @@ class VerificacionController extends Controller
                         $codigosNoCambiados[$key] =[
                             "codigo" => $item->codigo
                         ];
-                    }  
+                    }
                 }else{
                     $codigosYaVerificados[$contador] = [
                         "codigo" => $item->codigo,
@@ -157,11 +157,10 @@ class VerificacionController extends Controller
                 return "no se pudo guardar";
             }
             return $verificar;
-         
-    
+
+
         }else{
             //verificar que existe el id_profesor no tenga una verificacion abierta
-            $traerdocente = $request->docente_id;
             $traercontrato = $request->contrato;
             $verificardocenteverificacion = DB::table('contratos')
             ->select('contratos.verificacion_estado')
@@ -170,13 +169,18 @@ class VerificacionController extends Controller
             ->get();
             if(count($verificardocenteverificacion) <= 0){
                 //PARA OBTENER EL PERIODO
-                    $buscarPeriodo = $this->traerPeriodo($request->institucion_id);
-                    if($buscarPeriodo["status"] == "1"){
-                        $periodo = $buscarPeriodo["periodo"][0]->periodo;   
-                    }  
-                    if($buscarPeriodo["status"] == "0"){
-                        return "no existe el periodo para la institucion";
-                    } 
+                    $getContrato = DB::table('contratos')
+                    ->where('cod_contrato', $request->contrato)
+                    ->first();
+                    if(!$getContrato){
+                        return "No existe el contrato";
+                    }
+
+                    $periodo = $getContrato->id_periodo;
+                    //si el periodo es nullo o cero
+                    if($periodo == 0 || $periodo == null){
+                        return "No existe el periodo para la institucion";
+                    }
                     $contador = 0;
                     //validar que sea la primera verificacion
                     $ifVerificacion = DB::SELECT("SELECT * FROM verificacion_codigo v
@@ -194,32 +198,30 @@ class VerificacionController extends Controller
                     $verificar->descripcion         = $request->descripcion;
                     $verificar->institucion_id      = $request->institucion_id;
                     $verificar->docente_id          = $request->docente_id;
-                    $verificar->fecha_inicio        = $date->toDateTimeString();   
+                    $verificar->fecha_inicio        = $date->toDateTimeString();
                     $verificar->codigos             = 0;
                     $verificar->contrato            = $request->contrato;
                     $verificar->id_periodo          = $periodo;
                     $verificar->num_verificacion    = $contador+1;
-                    $verificar->save();  
+                    $verificar->save();
                     //el docente pasaria a tener un verificacion abierta
                     $res = DB::table('contratos')
                     ->where('cod_contrato', $request->contrato)
                     ->update(['verificacion_estado' => 1]);
                     return $verificar;
-
-                    
              }else{
 
                 return "Una verificacion se encuentra abierta para este docente";
              }
-           
+
         }
-       
+
     }
 
     public function traerPeriodo($institucion){
-        $periodoInstitucion = DB::SELECT("SELECT idperiodoescolar AS periodo , periodoescolar AS descripcion FROM periodoescolar WHERE idperiodoescolar = ( 
+        $periodoInstitucion = DB::SELECT("SELECT idperiodoescolar AS periodo , periodoescolar AS descripcion FROM periodoescolar WHERE idperiodoescolar = (
             SELECT  pir.periodoescolar_idperiodoescolar as id_periodo
-            from institucion i,  periodoescolar_has_institucion pir         
+            from institucion i,  periodoescolar_has_institucion pir
             WHERE i.idInstitucion = pir.institucion_idInstitucion
             AND pir.id = (SELECT MAX(phi.id) AS periodo_maximo FROM periodoescolar_has_institucion phi
             WHERE phi.institucion_idInstitucion = i.idInstitucion
@@ -237,11 +239,11 @@ class VerificacionController extends Controller
         //validar que no envie numeros extraños
         $estado = $request->estado;
         if($estado !=2){
-            return ["status" => "0","message" => "Estado no existe"]; 
+            return ["status" => "0","message" => "Estado no existe"];
         }
         //validar que el codigo existe
-        $validar = DB::SELECT("SELECT 
-        (CASE 
+        $validar = DB::SELECT("SELECT
+        (CASE
             WHEN(c.estado = '0') THEN 'Codigo libre'
             WHEN(c.estado = '1') THEN 'Codigo utilizado'
             WHEN(c.estado = '2') THEN 'Codigo devuelto'
@@ -254,12 +256,12 @@ class VerificacionController extends Controller
             $ifVerificado = $validar[0]->estado;
             if($ifVerificado != '1'){
                 $cambiar = DB::table('codigos')
-                ->where('_id',$request->codigo)   
+                ->where('_id',$request->codigo)
                 ->update([
                    'estado' => $estado
-                ]);    
+                ]);
                $codigo = $this->validar($request->codigo);
-               $observacion  = $codigo[0]->estadoCodigo; 
+               $observacion  = $codigo[0]->estadoCodigo;
                 //ingresar en el historico
                 $historico = new HistoricoCodigos();
                 $historico->id_usuario     = 0;
@@ -282,7 +284,7 @@ class VerificacionController extends Controller
     public function estadoCodigo($codigo){
         //validar que el codigo existe
         $validar = $this->validar($codigo);
-        if(count($validar)>0){  
+        if(count($validar)>0){
             return $validar;
         }else{
             return ["status" => "0","message" => "No existe el codigo"];
@@ -290,8 +292,8 @@ class VerificacionController extends Controller
     }
 
     public function validar($codigo){
-        $validar = DB::SELECT("SELECT 
-        (CASE 
+        $validar = DB::SELECT("SELECT
+        (CASE
             WHEN(c.estado = '0') THEN 'Codigo libre'
             WHEN(c.estado = '1') THEN 'Codigo utilizado'
             WHEN(c.estado = '2') THEN 'Codigo devuelto'
